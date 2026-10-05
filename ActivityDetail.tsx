@@ -2,8 +2,8 @@
 
 import { useRef, useState } from 'react'
 import { ArrowRight, CheckCircle, Download, Sparkles } from 'lucide-react'
-import { actividades } from '@/data/preguntasESI'
 import { toPng } from 'html-to-image'
+import { actividades } from '@/data/preguntasESI'
 
 interface ActivityDetailProps {
   activityId: string
@@ -49,12 +49,16 @@ export function ActivityDetail({ activityId, onBack, onStartQuiz, onSave }: Acti
       const link = document.createElement('a')
       link.download = 'mural-esi-20-anos.png'
       link.href = dataUrl
+      document.body.appendChild(link)
       link.click()
+      link.remove()
       saveMural(dataUrl)
       setSaved(true)
     } catch (error) {
       console.error('Error al descargar el mural:', error)
-    } finally { setDownloading(false) }
+    } finally {
+      setDownloading(false)
+    }
   }
 
   return <section className="mx-auto max-w-7xl px-5 py-14 lg:px-10">
@@ -63,8 +67,8 @@ export function ActivityDetail({ activityId, onBack, onStartQuiz, onSave }: Acti
       <div className="flex items-center justify-between"><span className="rounded-full bg-[#fff1e8] px-4 py-1.5 text-sm font-black text-[#e68a55]">Actividad {number}</span>{saved && <span className="flex items-center gap-1.5 text-sm font-bold text-[#286f60]"><CheckCircle className="size-5" /> Guardado correctamente</span>}</div>
       <h2 className="mt-5 text-3xl font-black text-[#286f60] sm:text-4xl">{title}</h2><p className="mt-3 text-base leading-relaxed text-[#718078]">{description}</p>
       {id === 'quiz' && <div className="mt-10 rounded-3xl bg-[#e4f0e9] p-8 text-center"><Sparkles className="mx-auto mb-3 size-8 text-[#286f60]" /><h3 className="text-xl font-bold text-[#286f60]">Completá el Desafío ESI</h3><button onClick={onStartQuiz} className="mt-6 rounded-full bg-[#286f60] px-7 py-3.5 font-bold text-white">Ir al Desafío ESI <ArrowRight className="ml-2 inline size-4" /></button></div>}
-      {id === 'mural' && <div className="mt-10 space-y-8"><div><label className="mb-3 block text-sm font-bold text-[#286f60]">1. Elegí una plantilla para tu mural:</label><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{muralTemplates.map((template) => <button key={template.id} onClick={() => setSelectedTemplate(template.image)} className={`rounded-2xl border-2 p-2 text-left text-xs font-semibold ${selectedTemplate === template.image ? 'border-[#286f60] bg-[#e4f0e9]' : 'border-[#dfe6df] bg-white'}`}><img src={template.image} alt={template.name} className="mb-2 h-20 w-full rounded-xl object-cover" />{template.name}</button>)}</div></div><div><label className="mb-3 block text-sm font-bold text-[#286f60]">2. Vista previa y textos:</label><div ref={muralRef} className="relative aspect-video w-full overflow-hidden rounded-3xl border-4 border-[#286f60] bg-white shadow-md"><img src={selectedTemplate} alt="Plantilla seleccionada" className="absolute inset-0 h-full w-full object-cover opacity-90" /><div className="absolute inset-0 flex flex-col items-center justify-between p-8 text-center"><input aria-label="Mensaje principal" value={muralTexts[0]} onChange={(e) => setMuralTexts([e.target.value, muralTexts[1]])} placeholder="Escribí un mensaje principal aquí..." className="w-3/4 rounded-xl border border-[#286f60]/30 bg-white/90 px-4 py-2 text-center text-sm font-bold text-[#28342f] shadow" /><input aria-label="Segundo mensaje" value={muralTexts[1]} onChange={(e) => setMuralTexts([muralTexts[0], e.target.value])} placeholder="Escribí un segundo mensaje o frase..." className="w-3/4 rounded-xl border border-[#286f60]/30 bg-white/90 px-4 py-2 text-center text-sm font-bold text-[#28342f] shadow" /></div></div></div><button onClick={handleDownloadMural} disabled={downloading} className="flex items-center gap-2 rounded-full bg-[#286f60] px-7 py-3.5 font-bold text-white disabled:opacity-50"><Download className="size-5" />{downloading ? 'Preparando imagen…' : 'Guardar mural (Descargar imagen)'}</button></div>}
-      {id !== 'quiz' && id !== 'mural' && <div className="mt-8 space-y-4"><label className="block text-sm font-bold text-[#286f60]">Tu respuesta / producción:</label><textarea rows={5} value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Escribí tu reflexión o respuesta aquí..." className="w-full rounded-2xl border border-[#dfe6df] p-4 text-[#28342f]" /><button onClick={handleSave} disabled={!response.trim()} className="rounded-full bg-[#e68a55] px-7 py-3.5 font-bold text-white disabled:opacity-50">Guardar respuesta</button></div>}
+      {id === 'mural' && <div className="mt-10 space-y-8"><div><label className="mb-3 block text-sm font-bold text-[#286f60]">1. Elegí una plantilla para tu mural:</label><div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{muralTemplates.map((template) => <button type="button" key={template.id} onClick={() => setSelectedTemplate(template.image)} className={`rounded-2xl border-2 p-2 text-left text-xs font-semibold ${selectedTemplate === template.image ? 'border-[#286f60] bg-[#e4f0e9]' : 'border-[#dfe6df] bg-white'}`}><img src={template.image} alt={template.name} className="mb-2 h-20 w-full rounded-xl object-cover" />{template.name}</button>)}</div></div><div><label className="mb-3 block text-sm font-bold text-[#286f60]">2. Vista previa y textos:</label><div ref={muralRef} className="relative aspect-video w-full overflow-hidden rounded-3xl border-4 border-[#286f60] bg-white shadow-md"><img src={selectedTemplate} alt="Plantilla seleccionada" className="absolute inset-0 h-full w-full object-cover opacity-90" /><div className="absolute inset-0 flex flex-col items-center justify-between p-8 text-center"><input aria-label="Mensaje principal" value={muralTexts[0]} onChange={(e) => setMuralTexts([e.target.value, muralTexts[1]])} placeholder="Escribí un mensaje principal aquí..." className="w-3/4 rounded-xl border border-[#286f60]/30 bg-white/90 px-4 py-2 text-center text-sm font-bold text-[#28342f] shadow" /><input aria-label="Segundo mensaje" value={muralTexts[1]} onChange={(e) => setMuralTexts([muralTexts[0], e.target.value])} placeholder="Escribí un segundo mensaje o frase..." className="w-3/4 rounded-xl border border-[#286f60]/30 bg-white/90 px-4 py-2 text-center text-sm font-bold text-[#28342f] shadow" /></div></div></div><button type="button" onClick={handleDownloadMural} disabled={downloading} className="flex items-center gap-2 rounded-full bg-[#286f60] px-7 py-3.5 font-bold text-white disabled:opacity-50"><Download className="size-5" />{downloading ? 'Preparando imagen…' : 'Guardar mural (descargar PNG)'}</button></div>}
+      {id !== 'quiz' && id !== 'mural' && <div className="mt-8 space-y-4"><label className="block text-sm font-bold text-[#286f60]">Tu respuesta / producción:</label><textarea rows={5} value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Escribí tu reflexión o respuesta aquí..." className="w-full rounded-2xl border border-[#dfe6df] p-4 text-[#28342f]" /><button type="button" onClick={handleSave} disabled={!response.trim()} className="rounded-full bg-[#e68a55] px-7 py-3.5 font-bold text-white disabled:opacity-50">Guardar respuesta</button></div>}
     </div>
   </section>
 }
