@@ -18,6 +18,7 @@ export default function Page() {
   const [questionIndex, setQuestionIndex] = useState(0)
   const [score, setScore] = useState(0)
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
+  const [quizAnswers, setQuizAnswers] = useState<Array<number | null>>([])
   const [finished, setFinished] = useState(false)
   const [activityResponses, setActivityResponses] = useState<Record<string, string>>({})
   const [studentName, setStudentName] = useState('')
@@ -26,19 +27,27 @@ export default function Page() {
   const questions = useMemo(() => buildQuiz(quizMode, selectedEje), [quizMode, selectedEje, started])
   const currentQuestion = questions[questionIndex]
 
-  function startQuiz() { setStarted(true); setFinished(false); setQuestionIndex(0); setScore(0); setSelectedAnswer(null); setActive('desafio') }
+  function startQuiz() { setStarted(true); setFinished(false); setQuestionIndex(0); setScore(0); setSelectedAnswer(null); setQuizAnswers([]); setActive('desafio') }
   function answer(index: number) {
     if (selectedAnswer !== null) return
     setSelectedAnswer(index)
+    setQuizAnswers((answers) => { const next = [...answers]; next[questionIndex] = index; return next })
     if (index === currentQuestion.respuestaCorrecta) setScore((value) => value + 1)
   }
   function nextQuestion() {
-    if (questionIndex + 1 >= questions.length) { const finalScore = score + (selectedAnswer === currentQuestion.respuestaCorrecta ? 1 : 0); setFinished(true); saveActivity('quiz', `Desafío completado: ${finalScore}/${questions.length}`); setGuidedStep(1); go('actividad-situaciones') }
+    if (questionIndex + 1 >= questions.length) { const finalScore = score + (selectedAnswer === currentQuestion.respuestaCorrecta ? 1 : 0); setFinished(true); saveActivity('quiz', JSON.stringify({ score: finalScore, total: questions.length, items: questions.map((question, index) => ({ question: question.pregunta, answer: question.opciones[quizAnswers[index] ?? selectedAnswer ?? -1] || 'Sin respuesta', correct: question.opciones[question.respuestaCorrecta] })) })); setGuidedStep(1); go('actividad-situaciones') }
     else { setQuestionIndex((value) => value + 1); setSelectedAnswer(null) }
   }
   function go(id: string) { setActive(id); setMenuOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
   function saveActivity(id: string, response: string) { setActivityResponses((current) => ({ ...current, [id]: response })) }
   const allActivitiesComplete = ['quiz', 'situaciones', 'ideas', 'mural'].every((id) => Boolean(activityResponses[id]))
+  function formatQuizResponse(response: string) {
+    try {
+      const quiz = JSON.parse(response) as { score?: number; total?: number; items?: Array<{ question: string; answer: string; correct: string }> }
+      if (!quiz.items?.length) return response
+      return `Resultado: ${quiz.score ?? 0}/${quiz.total ?? quiz.items.length}\n\n${quiz.items.map((item, index) => `Pregunta ${index + 1}: ${item.question}\nRespuesta: ${item.answer}\nRespuesta correcta: ${item.correct}`).join('\n\n')}`
+    } catch { return response }
+  }
   function downloadAllActivities() {
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
     const safePart = (value: string, fallback: string) => value.trim().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '') || fallback
@@ -46,7 +55,7 @@ export default function Page() {
     pdf.setTextColor('#286f60'); pdf.setFontSize(20); pdf.text('ESI — 20 años', 20, 22)
     pdf.setFontSize(11); pdf.setTextColor('#52635a'); pdf.text(`Estudiante: ${studentName || 'Sin nombre'}   Curso: ${course || 'Sin curso'}`, 20, 31)
     let y = 45
-    actividades.forEach(([number, title], index) => { if (index > 0 && y > 255) { pdf.addPage(); y = 22 } pdf.setTextColor('#e68a55'); pdf.setFontSize(13); pdf.text(`Actividad ${number} — ${title}`, 20, y); y += 8; pdf.setTextColor('#28342f'); pdf.setFontSize(10); const response = activityResponses[['quiz', 'situaciones', 'ideas', 'mural'][index]] || 'Actividad pendiente'; let mural: { template?: string; texts?: string[]; images?: string[] } | null = null; if (index === 3) { try { const parsed = JSON.parse(response); if (parsed && typeof parsed === 'object') mural = parsed } catch { mural = null } } const printable = mural ? `Plantilla: ${mural.template || 'Mural libre'}\nTextos: ${mural.texts?.join(' | ') || 'Sin textos'}\nImágenes incorporadas: ${mural.images?.length || 0}` : response; pdf.splitTextToSize(printable, 170).forEach((line: string) => { if (y > 280) { pdf.addPage(); y = 22 } pdf.text(line, 20, y); y += 5 }); if (mural?.images?.length) { mural.images.forEach((image: string) => { if (!image.startsWith('data:image/')) return; if (y > 220) { pdf.addPage(); y = 22 } const format = image.startsWith('data:image/png') ? 'PNG' : image.startsWith('data:image/webp') ? 'WEBP' : 'JPEG'; try { pdf.addImage(image, format, 20, y, 70, 50); y += 56 } catch { /* omit an unsupported image without aborting the PDF */ } }) }; y += 8 })
+    actividades.forEach(([number, title], index) => { if (index > 0 && y > 255) { pdf.addPage(); y = 22 } pdf.setTextColor('#e68a55'); pdf.setFontSize(13); pdf.text(`Actividad ${number} — ${title}`, 20, y); y += 8; pdf.setTextColor('#28342f'); pdf.setFontSize(10); const response = activityResponses[['quiz', 'situaciones', 'ideas', 'mural'][index]] || 'Actividad pendiente'; let mural: { template?: string; texts?: string[]; images?: string[] } | null = null; if (index === 3) { try { const parsed = JSON.parse(response); if (parsed && typeof parsed === 'object') mural = parsed } catch { mural = null } } let printable = response; if (mural) printable = `Plantilla: ${mural.template || 'Mural libre'}\nTextos: ${mural.texts?.join(' | ') || 'Sin textos'}\nImágenes incorporadas: ${mural.images?.length || 0}`; else if (index === 0) { try { const quiz = JSON.parse(response) as { score?: number; total?: number; items?: Array<{ question: string; answer: string; correct: string }> }; if (quiz.items?.length) printable = `Resultado: ${quiz.score ?? 0}/${quiz.total ?? quiz.items.length}\n\n${quiz.items.map((item, itemIndex) => `Pregunta ${itemIndex + 1}: ${item.question}\nRespuesta: ${item.answer}\nRespuesta correcta: ${item.correct}`).join('\n\n')}` } catch { printable = response } } pdf.splitTextToSize(index === 0 ? formatQuizResponse(printable) : printable, 170).forEach((line: string) => { if (y > 280) { pdf.addPage(); y = 22 } pdf.text(line, 20, y); y += 5 }); if (mural?.images?.length) { mural.images.forEach((image: string) => { if (!image.startsWith('data:image/')) return; if (y > 220) { pdf.addPage(); y = 22 } const format = image.startsWith('data:image/png') ? 'PNG' : image.startsWith('data:image/webp') ? 'WEBP' : 'JPEG'; try { pdf.addImage(image, format, 20, y, 70, 50); y += 56 } catch { /* omit an unsupported image without aborting the PDF */ } }) }; y += 8 })
     pdf.save(title)
   }
   function handleActivitySave(id: string, response: string) { const expectedId = actividades[guidedStep]?.[3]; if (id !== expectedId || !response.trim()) return; saveActivity(id, response); const next = guidedStep + 1; if (next < actividades.length) { setGuidedStep(next); go(`actividad-${actividades[next][3]}`) } }
